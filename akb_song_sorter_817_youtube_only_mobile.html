@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AKB48 楽曲ソート（817曲・YouTube検索のみ・モバイル最適化）</title>
+<style>
+  :root{
+    --bg:#0b0b10; --bg2:#11131a; --panel:#121520; --border:#2a2f3a; --text:#eaeaea;
+    --muted:#98a2b3; --accent1:#5ea0ff; --accent2:#9a7bff;
+  }
+  *{ box-sizing:border-box; }
+  body{ font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN","メイリオ", sans-serif; margin:0; background:var(--bg); color:var(--text); }
+  header{ position:sticky; top:0; background:var(--bg2); border-bottom:1px solid var(--border); padding:12px 16px; z-index:10; }
+  h1{ font-size:clamp(16px, 4vw, 22px); margin:0; }
+  .container{ max-width:1100px; margin:0 auto; padding:16px; }
+  .panel{ background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:16px; }
+
+  .controls{ display:grid; grid-template-columns:1fr auto auto; gap:8px; align-items:center; }
+  input[type="text"]{ width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:#0e1120; color:var(--text); font-size:16px; }
+  button{ padding:12px 14px; border-radius:14px; border:1px solid #394055; background:#1a2030; color:var(--text); cursor:pointer; font-size:16px; min-height:44px; }
+  button:active{ transform:scale(.98); }
+  .list{ margin-top:12px; max-height:360px; overflow:auto; border:1px solid var(--border); border-radius:12px; }
+  .row{ display:flex; gap:10px; align-items:center; padding:10px 12px; border-bottom:1px solid #1c2030; }
+  .row:nth-child(even){ background:#0f1322; }
+  .small{ color:var(--muted); font-size:13px; }
+
+  .compare{ display:grid; grid-template-columns:1fr 160px 1fr; gap:12px; margin-top:14px; align-items:stretch; }
+  .card{ background:#0e1220; border:1px solid var(--border); border-radius:16px; padding:18px; font-size:18px; display:flex; align-items:center; justify-content:center; min-height:110px; text-align:center; }
+  .progress{ height:12px; background:#1b2133; border-radius:999px; overflow:hidden; border:1px solid var(--border); }
+  .bar{ height:100%; width:0%; background:linear-gradient(90deg,var(--accent1),var(--accent2)); }
+
+  /* Sticky action bar for mobile */
+  .actionbar{ position:sticky; bottom:0; background:var(--bg2); border-top:1px solid var(--border); padding:10px; display:none; gap:8px; z-index:9; }
+  .actionbar button{ flex:1; }
+
+  /* Larger checkbox touch target */
+  input[type="checkbox"]{ width:22px; height:22px; }
+
+  /* Mobile layout */
+  @media (max-width: 680px){
+    .controls{ grid-template-columns:1fr; }
+    .list{ max-height: min(50vh, 460px); }
+    .compare{ grid-template-columns:1fr; }
+    .card{ min-height: 140px; font-size: 18px; padding: 20px; }
+    .choiceCol{ display:none; }
+    .actionbar{ display:flex; }
+    button{ font-size:17px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>AKB48 楽曲ソート（817曲・YouTube検索のみ・モバイル最適化）</h1>
+  <div class="small">PC: A/←=左, D/→=右, S/↓=同じ, Q=左を検索, E=右を検索 ／ スマホ: カードを左右にスワイプで選択、タップでYouTube検索</div>
+</header>
+
+<div class="container">
+  <div class="panel">
+    <div class="controls">
+      <input id="filter" type="text" inputmode="search" placeholder="曲名を絞り込み（例：ヘビーローテーション）">
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <button id="btnSelectAll" aria-label="表示中を全選択">表示中を全選択</button>
+        <button id="btnClear" aria-label="選択を全解除">選択を全解除</button>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <button id="btnStart" aria-label="選択曲でソート開始">選択曲でソート開始</button>
+        <button id="btnStartAll" aria-label="全曲でソート開始">全曲を選択してソート</button>
+      </div>
+    </div>
+    <div class="small" style="margin-top:6px">総曲数：<span id="totalCount"></span>　/　選択中：<span id="selectedCount">0</span></div>
+    <div id="list" class="list" aria-label="曲一覧"></div>
+    <div style="margin-top:8px"><label><input type="checkbox" id="shuffle" checked> シャッフルして開始</label></div>
+  </div>
+
+  <div id="sorter" class="panel" style="margin-top:16px; display:none">
+    <div class="progress"><div class="bar" id="bar"></div></div>
+    <div class="small" style="margin-top:6px">進捗：<span id="progressText">0 / 0</span></div>
+    <div class="compare" aria-live="polite">
+      <div>
+        <div class="card" id="leftCard" tabindex="0">左</div>
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+          <button id="btnLeftSearch">左をYouTube検索</button>
+        </div>
+      </div>
+      <div class="choiceCol" style="display:flex; align-items:center; justify-content:center; gap:8px; flex-direction:column;">
+        <button id="btnLeft" title="← または A"><span>A / ←</span> 左を選ぶ</button>
+        <button id="btnTie" title="↓ または S"><span>S / ↓</span> 同じくらい</button>
+        <button id="btnRight" title="→ または D"><span>D / →</span> 右を選ぶ</button>
+      </div>
+      <div>
+        <div class="card" id="rightCard" tabindex="0">右</div>
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+          <button id="btnRightSearch">右をYouTube検索</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actionbar" id="actionbar">
+    <button id="abLeft">左を選ぶ</button>
+    <button id="abTie">同じくらい</button>
+    <button id="abRight">右を選ぶ</button>
+  </div>
+</div>
+
+<script>
+const SONGS = ["桜の花びらたち", "Dear my teacher", "スカート、ひらり", "青空のそばにいて", "会いたかった", "だけど…", "制服が邪魔をする", "Virgin love", "軽蔑していた愛情", "涙売りの少女", "BINGO!", "Only today", "僕の太陽", "未来の果実", "夕陽を見ているか？", "ビバ！ハリケーン", "ロマンス、イラネ", "愛の毛布", "桜の花びらたち 2008", "最後の制服", "Baby ! Baby ! Baby !", "Baby ! Baby ! Baby ! 〜追憶の太陽バージョン〜", "Baby ! Baby ! Baby ! 〜情熱の祈りバージョン〜", "大声ダイヤモンド", "109", "10年桜", "桜色の空の下で", "涙サプライズ！", "FIRST LOVE", "初日", "言い訳Maybe", "飛べないアゲハチョウ", "RIVER", "君のことが好きだから", "ひこうき雲（シアターガールズｖｅｒ．）", "桜の栞", "マジスカロックンロール", "遠距離ポスター", "Choose me !", "ポニーテールとシュシュ", "盗まれた唇", "僕のYELL", "マジジョテッペンブルース", "ヘビーローテーション", "涙のシーソーゲーム", "野菜シスターズ", "ラッキーセブン", "Beginner", "僕だけのvalue", "君について", "泣ける場所", "チャンスの順番", "予約したクリスマス", "胡桃とダイアローグ", "ALIVE", "ラブ・ジャンプ", "フルーツ・スノウ", "桜の木になろう", "偶然の十字路", "キスまで100マイル", "エリアK", "黄金センター", "誰かのために -What can I do for someone?-", "Everyday、カチューシャ", "これからWonderland", "ヤンキーソウル", "人の力", "アンチ", "フライングゲット", "抱きしめちゃいけない", "青春と気づかないまま", "アイスのくちづけ", "野菜占い", "風は吹いている", "君の背中", "Vamos", "ゴンドラリフト", "蕾たち", "上からマリコ", "ノエルの夜", "隣人は傷つかない", "ゼロサム太陽", "呼び捨てファンタジー", "走れ！ペンギン", "GIVE ME FIVE!", "スイート＆ビター", "NEW SHIP", "羊飼いの旅", "ユングやフロイトの場合", "真夏のSounds good !", "３つの涙", "ちょうだい、ダーリン！", "ぐぐたすの空", "君のために僕は…", "ギンガムチェック", "夢の河", "なんてボヘミアン", "ドレミファ音痴", "Show fight !", "あの日の風鈴", "UZA", "次のSeason", "孤独な星空", "スクラップ＆ビルド", "正義の味方じゃないヒーロー", "大人への道", "永遠プレッシャー", "とっておきクリスマス", "強がり時計", "HA!", "初恋バタフライ", "永遠より続くように", "私たちのReason", "So long !", "Waiting room", "Ruby", "夕陽マリー", "そこで犬のうんち踏んじゃうかね？", "強い花", "掌が語ること", "さよならクロール", "バラの果実", "イキルコト", "How come ?", "ロマンス拳銃", "ハステとワステ", "LOVE修行", "恋するフォーチュンクッキー", "愛の意味を考えてみた", "今度こそエクスタシー", "推定マーマレード", "最後のドア", "涙のせいじゃない", "青空カフェ", "ハート・エレキ", "快速と動体視力", "キスまでカウントダウン", "細雪リグレット", "君だけにChu ! Chu ! Chu !", "Tiny T-shirt", "清純フィロソフィー", "君の瞳はプラネタリウム", "鈴懸の木の道で「君の微笑みを夢に見る」と言ってしまったら僕たちの関係はどう変わってしまうのか、僕なりに何日か考えた上でのやや気恥ずかしい結論のようなもの", "Mosh & Dive", "Party is over", "Escape", "君と出会って僕は変わった", "ウインクは３回", "選んでレインボー", "前しか向かねえ", "昨日よりもっと好き", "君の嘘を知っていた", "秘密のダイアリー", "KONJO", "恋とか…", "ラブラドール・レトリバー", "今日までのメロディー", "君は気まぐれ", "愛しきライバル", "Bガーデン", "ハートの脱出ゲーム", "２人はデキテル", "心のプラカード", "誰かが投げたボール", "ひと夏の反抗期", "心のプラカード short ver.", "性格が悪い女の子", "チューインガムの味がなくなるまで", "セーラーゾンビ", "教えてMommy", "４７の素敵な街へ", "希望的リフレイン", "今、Happy", "従順なSlave", "Ambulance", "初めてのドライブ", "歌いたい", "ロンリネスクラブ", "制服の羽根", "目を開けたままのファーストキス", "風の螺旋", "Reborn", "Green Flash", "マジすかFight", "春の光   近づいた夏", "ヤンキーロック", "世界が泣いてるなら", "履物と傘の物語", "パンキッシュ", "挨拶から始めよう", "大人列車", "初恋のおしべ", "僕たちは戦わない", "Summer side", "“ダンシ”は研究対象", "カフカとでんでんむChu !", "汚れている真実", "バレバレ節", "君の第二章", "出逢いの日、別れの日", "ハロウィン・ナイト", "さよならサーフボード", "君にウェディングドレスを…", "君だけが秋めいていた", "水の中の伝導率", "一歩目音頭", "ヤンキーマシンガン", "群像", "唇にBe My Baby", "365日の紙飛行機", "さっきまではアイスティー", "君を君を君を…", "やさしい place", "マドンナの選択", "お姉さんの独り言", "あまのじゃくバッタ", "金の羽根を持つ人よ", "背中言葉", "なんか、ちょっと、急に…", "君はメロディー", "LALALAメッセージ", "Gonna Jump", "しがみついた青春", "Make noise", "Maxとき315号", "混ざり合うもの", "M.T.に捧ぐ", "翼はいらない", "Set me free", "恋をすると馬鹿を見る", "考える人", "哀愁のトランペッター", "夢へのルート", "君はどこにいる？", "LOVE TRIP", "しあわせを分けなさい", "光と影の日々", "伝説の魚", "進化してねえじゃん", "岸が見える海から", "2016年のInvitation", "光の中へ", "BLACK FLOWER", "ハイテンション", "抑えきれない衝動", "ハッピーエンド", "Better", "星空を君に", "思春期のアドレナリン", "清純タイアド", "また   あなたのことを考えてた", "シュートサイン", "気づかれないように…", "Vacancy", "真夜中の強がり", "止まらない観覧車", "アクシデント中", "みどりと森の運動公園", "誰のことを一番 愛してる？", "悲しい歌を聴きたくなった", "願いごとの持ち腐れ", "イマパラ", "前触れ", "点滅フェロモン", "あの頃の五百円玉", "瀬戸内の声", "#好きなんだ", "だらしない愛し方", "戸惑ってためらって", "自分たちの恋に限って", "月の仮面", "プライベートサマー", "ギブアップはしない", "抱きつこうか？", "11月のアンクレット", "サヨナラで終わるわけじゃない", "思い出せてよかった", "生きることに熱狂を！", "微笑みの瞬間", "野蛮な求愛", "法定速度と優越感", "予想外のストーリー", "ジャーバージャ", "ペダルと車輪と来た道と", "愛の喪明け", "下手を打つ", "ぶっ倒れるまで", "Position", "友達でいましょう", "国境のない時代", "友達ができた", "Teacher Teacher", "君は僕の風", "ロマンティック準備中", "終電の夜", "新しいチャイム", "猫アレルギー", "蜂の巣ダンス", "センチメンタルトレイン", "サンダルじゃできない恋", "友達じゃないか？", "ある日 ふいに…", "ひと夏の出来事", "波が伝えるもの", "“好き”のたね", "百合を咲かせるか？", "NO WAY MAN", "池の水を抜きたい", "わかりやすくてごめん", "それでも彼女は", "おはようから始まる世界", "最強ツインテール", "夢へのプロセス", "耳を塞げ！", "ジワるDAYS", "私だってアイドル！", "Generation Change", "初恋ドア", "必然性", "屋上から叫ぶ", "サステナブル", "好きだ 好きだ 好きだ", "青春 ダ・カーポ", "モニカ、夜明けだ", "流れ星に何を願えばいいのだろう", "失恋、ありがとう", "また会える日まで", "思い出マイフレンド", "ジタバタ", "愛する人", "離れていても", "根も葉もRumor", "大騒ぎ天国", "西高東低", "君がいなくなる12月", "ブラックジャガー", "元カレです", "壊さなきゃいけないもの", "アンジー", "臆病なナマケモノ", "Loss of time", "ヤラカソウ", "久しぶりのリップグロス", "Sugar night", "運命の歌", "Wonderful Love", "わがままメタバース", "マジか", "どうしても君が好きだ", "寝たふり", "サヨナラじゃない", "Wonderland", "あの夏の防波堤", "Da Re Da", "アイドルなんかじゃなかったら", "知ったかぶりのその下に", "君は僕を覚えてるかな？", "In any way", "全力反抗期", "Do the dance!", "カラコンウインク", "星が消えないうちに", "最後の最後まで", "パパに言えない夜", "マチビト", "ライオンを狙え!", "恋   詰んじゃった", "夢見てごめん", "ピンと来た", "すれ違う瞬間", "君と僕のポールスター", "思いやり", "まさかのConfession", "桜の花びらたち 2025", "ゆいりー", "晴れ渡る", "Skipping stone", "タイムマシン不要論", "Oh my pumpkin!", "意志の大木", "アイドルだよ、人生は…", "スマホ、見てる場合じゃない", "overture", "PARTYが始まるよ", "毒リンゴを食べさせて", "クラスメイト", "あなたとクリスマスイブ", "キスはだめよ", "星の温度", "AKB48", "嘆きのフィギュア", "涙の湘南", "渚のCHERRY", "ガラスの I LOVE YOU", "恋のPLAN", "背中から抱きしめて", "リオの革命", "JESUS", "未来の扉", "月見草", "Warning", "誕生日の夜", "Bird", "投げキッスで撃ち落せ！", "蜃気楼", "ライダー", "夏が行っちゃった", "小池", "月のかたち", "メドレー", "ただいま   恋愛中", "くまのぬいぐるみ", "7時12分の初恋", "春が来るまで", "純愛のクレッシェンド", "Faint", "帰郷", "ダルイカンジ", "Mr. Kissman", "君が教えてくれた", "LOVE CHASE", "なんて素敵な世界に生まれたのだろう", "長い光", "スコールの間に", "JK眠り姫", "君に会うたび   恋をする", "黒い天使", "ハート型ウイルス", "恋愛禁止条例", "ツンデレ！", "真夏のクリスマスローズ", "Switch", "ひこうき雲", "あの頃のスニーカー", "AKB参上！", "ナミダの深呼吸", "ミニスカートの妖精", "目撃者", "前人未踏", "いびつな真珠", "憧れのポップスター", "腕を組んで", "炎上路線", "愛しさのアクセル", "☆の向こう側", "サボテンとゴールドラッシュ", "美しき者", "アイヲクレ", "摩天楼の距離", "命の意味", "I'm crying.", "ずっと   ずっと", "Pioneer", "始まる。", "Prime time", "探してあげる", "ラベンダーフィールド", "リスケ", "制服ビキニ", "She's gone", "夢でKiss me !", "負け男", "月と水鏡", "門前仲町ダンス", "今夜、グロリアは誰に抱かれる？", "コピー＆ペースト", "ショーは終わらない", "ウィンクの銃弾", "涙はいつの日か", "青春ガールズ", "ビーチサンダル", "君が星になるまで", "Blue rose", "禁じられた２人", "雨の動物園", "ふしだらな夏", "Don't disturb!", "日付変更線", "僕の打ち上げ花火", "約束よ", "転がる石になれ", "シンデレラは騙されない", "友よ", "脳内パラダイス", "気になる転校生", "泣きながら微笑んで", "MARIA", "君はペガサス", "ほねほねワルツ", "くるくるぱー", "クリスマスがいっぱい", "シアター・パイレーツ", "片思いの卒業式", "花と散れ！", "Team K ２nd メドレー", "草原の奇跡", "マンモス", "最終ベルが鳴る", "ボーイフレンドの作り方", "偉い人になりたくない", "リターンマッチ", "初恋泥棒", "ごめんね   ジュエル", "おしべとめしべと夜の蝶々", "１６人姉妹の歌", "Stand up", "Cool girl", "回遊魚のキャパシティ", "会いに行こう", "シャムネコ", "メロスの道", "支え", "掌", "逆上がり", "否定のレクイエム", "その汗は嘘をつかない", "エンドロール", "わがままな流れ星", "愛の色", "抱きしめられたら", "虫のバラード", "フリしてマネして", "海を渡れ！", "街角のパーティー", "ファンレター", "不義理", "ハンパなイケメン", "To be continued.", "檸檬の年頃", "RESET", "洗濯物たち", "彼女になれますか？", "ウッホウッホホ", "制服レジスタンス", "奇跡は間に合わない", "逆転王子様", "明日のためにキスを", "心の端のソファー", "毒蜘蛛", "オケラ", "ホワイトデーには…", "ジグソーパズル４８", "星空のミステイク", "夢の鐘", "引っ越しました", "必殺テレポート", "ご機嫌ななめなマーメイド", "２人乗りの自転車", "天使のしっぽ", "パジャマドライブ", "純情主義", "てもでもの涙", "鏡の中のジャンヌ・ダルク", "Two years later", "命の使い道", "キスして損しちゃった", "僕の桜", "ワッショイB！", "水夫は嵐に夢を見る", "白いシャツ", "アイドルの夜明け", "みなさんもご一緒に", "春一番が吹く頃", "拳の正義", "残念少女", "口移しのチョコレート", "片思いの対角線", "天国野郎", "愛しきナターシャ", "女子高生はやめられない", "好きと言えばよかった", "そばかすのキス", "タンポポの決心", "B Stars", "横須賀カーブ", "アリガトウ", "ロマンスかくれんぼ", "勇気のハンマー", "隕石の確率", "愛のストリッパー", "シアターの女神", "初恋よ   こんにちは", "嵐の夜には", "キャンディー", "ロッカールームボーイ", "夜風の仕業", "１００メートルコンビニ", "好き   好き   好き", "サヨナラのカナシバリ", "潮風の招待状", "オネストマン", "チームＢ推し", "僕たちの紙飛行機", "Dreamin’ girls", "RUN RUN RUN", "アイドルなんて呼ばないで", "僕とジュリエットとジェットコースター", "ヒグラシノコイ", "愛しさのdefense", "向日葵", "竹内先輩", "そんなこんなわけで", "デジャビュ", "Lay down", "夢を死なせるわけにいかない", "Let's get ''あと１センチ''", "愛とプライド", "Bye Bye Bye", "初めてのジェリービーンズ", "となりのバナナ", "記憶のジレンマ", "Confession", "森へ行こう", "青春の稲妻", "生きるって素晴らしい", "ロックだよ、人生は…", "50%", "ハートが風邪をひいた夜", "重力シンパシー", "水曜日のアリス", "そのままで", "涙に沈む太陽", "君のc/w", "１９９４年の雷鳴", "思い出す度につらくなる", "お手上げララバイ", "キンモクセイ", "素敵な三角関係", "旅立ちのとき", "AKBフェスティバル", "キミが思ってるより…", "デッサン", "ハートのベクトル", "女神はどこで微笑む？", "未来が目にしみる", "ハングリーライオン", "夢を見るなら", "初恋の鍵", "愛しさを丸めて", "幼稚園の先生", "Hell or Heaven", "最後にアイスミルクを飲んだのはいつだろう？", "ときめきアンティーク", "誰が２人を出会わせたのか？", "失恋同盟", "バラの儀式", "美しい狩り", "哲学の森", "愛の川", "ほっぺ、ツネル", "誇りの丘", "話し相手は冷蔵庫", "左の腕で連れ去って…", "祈りはどんな未来もしあわせに変える", "残酷な雨", "やさしさに甘えられない", "あなたの代わりはいない", "ラスベガスで結婚しよう", "下衆な夢", "君のニュース", "overture 2.0", "ここからだ", "恋愛カンニング", "ロマンティック男爵", "劇場へ   ようこそ！", "Lollipop", "風の待ち伏せ", "クリスマスリング", "２月のMermaid", "振り向きざまのキッス", "夜中過ぎのアウトロー", "奇跡が消えても", "シクラメンが咲く頃", "まだ見たことのない景色へ", "緞帳を上げてくれ！", "そんなに好きだったら", "Hungry love", "夕陽を見ているか？（Original Mix）", "スカート、ひらり（Album Mix)", "Virgin love（Album Mix)", "ロマンス、イラネ（Original Mix）", "桜の花びらたち2008（Original Mix）", "Seventeen", "あなたがいてくれたから", "Baby ! Baby ! Baby ! Baby !", "自分らしさ", "君と虹と太陽と", "少女たちよ", "Overtake", "僕にできること", "恋愛サーカス", "風の行方", "わがままコレクション", "人魚のバカンス", "君と僕の関係", "イイカゲンのススメ", "High school days", "ここにいたこと", "ファースト・ラビット", "恋愛総選挙", "Hate", "プラスティックの唇", "思い出のほとんど", "家出の夜", "スキャンダラスに行こう！", "ノーカン", "アボガドじゃね～し…", "直角Sunshine", "僕たちは   今   話し合うべきなんだ", "さくらんぼと孤独", "大事な時間", "いつか見た海の底", "ぐ～ぐ～おなか", "やさしさの地図", "行ってらっしゃい", "青空よ   寂しくないか？", "桜の花びら ～前田敦子 solo ver.～", "After rain", "ボーイハントの方法   教えます", "JJに借りたもの", "シャワーの後だから", "10クローネとパン", "確信がもてるもの", "チーム坂", "強さと弱さの間で", "僕は頑張る", "スマイル神隠し", "他人行儀なSunset beach", "わたし   リーフ", "Stoicな美学", "ぽんこつブルース", "イチニノサン", "共犯者", "動機", "悲しき近距離恋愛", "散ればいいのに…", "愛の存在", "Conveyor", "へなちょこサポート", "彼女", "ダウンタウンホテル100号室", "純情ソーダ水", "愛と悲しみの時差", "Birth", "７回目の「レミゼ」", "Oh! Baby!", "ここがロドスだ、ここで跳べ！", "僕たちのイデオロギー", "To goで", "切ないリプライ", "パナマ運河", "赤いピンヒールとプロフェッサー", "よわむしけむし", "涙は後回し", "All of you", "友達でいられるなら", "生き続ける", "最初の愛の物語", "桜の花びらたち (2015 BEST ver.)", "スカート、ひらり  (2015 BEST ver.)", "クリスマスイブに泣かないように", "始まりの雪", "ロザリオ", "Clap", "愛の使者", "ミュージックジャンキー", "泣き言タイム", "一生の間に何人と出逢えるのだろう", "LOVE ASH", "やさしくありたい", "トイプードルと君の物語", "あの頃、好きだった人", "てんとうむChu ! を探せ！", "あれから僕は勉強が手につかない", "あの日の自分", "Get you！", "誕生日TANGO", "コイントス", "ひび割れた鏡", "過ち", "青くさいロック", "ランナーズハイ", "だから君が好きなのか", "バケット", "誰が私を泣かせた？", "すべては途中経過", "靴紐の結び方", "涙の表面張力", "Mystery Line", "恋愛無間地獄", "天国の隠れ家", "キスキャンペーン", "クサイモノだらけ", "ごめんね、好きになっちゃって…", "年下の男の子", "UFO", "チェリーブラッサム", "時をかける少女", "なんてったってアイドル", "DESIRE－情熱－", "じゃあね", "淋しい熱帯魚", "Body＆Soul", "LOVEマシーン", "行くぜっ！怪盗少女", "君の名は希望", "オトナブルー", "可愛くてごめん", "Sugar Rush", "私に似てる", "ありふれた愛", "恋でもしよう", "カレーライス希望", "恋人いない選手権", "近いのに離れてる", "恋のバイトル", "アイサレルトイウコト"];
+let filtered = [...SONGS];
+let selected = new Set();
+
+const listEl = document.getElementById('list');
+const totalCountEl = document.getElementById('totalCount');
+const selectedCountEl = document.getElementById('selectedCount');
+const filterEl = document.getElementById('filter');
+const btnSelectAll = document.getElementById('btnSelectAll');
+const btnClear = document.getElementById('btnClear');
+const btnStart = document.getElementById('btnStart');
+const btnStartAll = document.getElementById('btnStartAll');
+const shuffleEl = document.getElementById('shuffle');
+
+function renderList(){
+  listEl.innerHTML = "";
+  totalCountEl.textContent = SONGS.length;
+  selectedCountEl.textContent = selected.size;
+  const frag = document.createDocumentFragment();
+  filtered.forEach(name=>{
+    const row = document.createElement('div'); row.className='row';
+    const cb = document.createElement('input'); cb.type='checkbox'; cb.checked = selected.has(name);
+    cb.onchange = ()=>{ if(cb.checked) selected.add(name); else selected.delete(name); selectedCountEl.textContent = selected.size; };
+    const span = document.createElement('span'); span.textContent = name; span.style.flex=1;
+    row.appendChild(cb); row.appendChild(span); frag.appendChild(row);
+  });
+  listEl.appendChild(frag);
+}
+filterEl.addEventListener('input', (e)=>{
+  const q=e.target.value.trim();
+  if(!q){ filtered=[...SONGS]; renderList(); return; }
+  try { const re = new RegExp(q,'i'); filtered = SONGS.filter(s=>re.test(s)); }
+  catch(_) { filtered = SONGS.filter(s=>s.toLowerCase().includes(q.toLowerCase())); }
+  renderList();
+});
+btnSelectAll.onclick=()=>{ filtered.forEach(n=>selected.add(n)); renderList(); };
+btnClear.onclick=()=>{ selected.clear(); renderList(); };
+
+// sorter
+function estimate(n){ return Math.floor(n*Math.log2(Math.max(2,n))); }
+const sorter=document.getElementById('sorter');
+const bar=document.getElementById('bar');
+const progressText=document.getElementById('progressText');
+const leftCard=document.getElementById('leftCard');
+const rightCard=document.getElementById('rightCard');
+const btnLeft=document.getElementById('btnLeft');
+const btnRight=document.getElementById('btnRight');
+const btnTie=document.getElementById('btnTie');
+const btnLeftSearch=document.getElementById('btnLeftSearch');
+const btnRightSearch=document.getElementById('btnRightSearch');
+const abLeft=document.getElementById('abLeft');
+const abRight=document.getElementById('abRight');
+const abTie=document.getElementById('abTie');
+
+let blocks=[], nextBlocks=[], pairIdx=0, iA=0, iB=0, out=[], total=0, done=0;
+
+function startWith(list){
+  if(list.length<2){ alert('2曲以上選んでね'); return; }
+  let pool=list.slice(); if(shuffleEl.checked) pool.sort(()=>Math.random()-0.5);
+  blocks=pool.map(x=>[x]); nextBlocks=[]; pairIdx=0; iA=iB=0; out=[];
+  total = estimate(pool.length); done = 0;
+  sorter.style.display='';
+  showNextPair();
+}
+btnStart.onclick=()=>startWith(Array.from(selected));
+btnStartAll.onclick=()=>startWith(SONGS.slice());
+
+function currentLeft(){ return blocks[pairIdx]; }
+function currentRight(){ return (pairIdx+1<blocks.length)?blocks[pairIdx+1]:[]; }
+function updateProgress(){ const pct=Math.min(100,Math.floor((done/Math.max(1,total))*100)); bar.style.width=pct+'%'; progressText.textContent = done + ' / ' + total; }
+function showNextPair(){
+  if(pairIdx>=blocks.length){
+    if(nextBlocks.length===0) return; // 完了（必要なら結果表示に変更可）
+    blocks=nextBlocks; nextBlocks=[]; pairIdx=0; iA=iB=0; out=[];
+  }
+  const A=currentLeft(), B=currentRight();
+  if(B.length===0){ nextBlocks.push(A.slice()); pairIdx+=2; showNextPair(); return; }
+  if(iA>=A.length || iB>=B.length){
+    while(iA<A.length) out.push(A[iA++]);
+    while(iB<B.length) out.push(B[iB++]);
+    nextBlocks.push(out.slice()); pairIdx+=2; iA=iB=0; out=[]; showNextPair(); return;
+  }
+  leftCard.textContent=A[iA]; rightCard.textContent=B[iB]; done++; updateProgress();
+}
+
+function yt(title){ window.open('https://www.youtube.com/results?search_query='+encodeURIComponent('AKB48 '+title),'_blank'); }
+btnLeftSearch.onclick=()=>yt(leftCard.textContent);
+btnRightSearch.onclick=()=>yt(rightCard.textContent);
+
+// Swipe gestures (mobile)
+function addSwipe(el, onLeft, onRight){
+  let sx=0, sy=0, dx=0, dy=0, touching=false;
+  el.addEventListener('touchstart', (e)=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; touching=true; }, {passive:true});
+  el.addEventListener('touchmove', (e)=>{ if(!touching) return; const t=e.changedTouches[0]; dx=t.clientX-sx; dy=t.clientY-sy; }, {passive:true});
+  el.addEventListener('touchend', ()=>{
+    if(!touching) return; touching=false;
+    if(Math.abs(dx)>50 && Math.abs(dy)<40){
+      if(dx<0) onLeft(); else onRight();
+    } else {
+      // tap opens YouTube
+      yt(el.textContent);
+    }
+    dx=dy=0;
+  }, {passive:true});
+}
+addSwipe(leftCard, ()=>{ btnLeft.click(); }, ()=>{ btnRight.click(); });
+addSwipe(rightCard, ()=>{ btnLeft.click(); }, ()=>{ btnRight.click(); });
+
+// Keyboard shortcuts (desktop)
+document.addEventListener('keydown', (e)=>{
+  if(sorter.style.display==='none') return;
+  const k=e.key.toLowerCase();
+  if(k==='arrowleft'||k==='a') btnLeft.click();
+  else if(k==='arrowright'||k==='d') btnRight.click();
+  else if(k==='arrowdown'||k==='s') btnTie.click();
+  else if(k==='q') btnLeftSearch.click();
+  else if(k==='e') btnRightSearch.click();
+});
+
+// Sticky action bar (mobile)
+abLeft.onclick = ()=>btnLeft.click();
+abRight.onclick = ()=>btnRight.click();
+abTie.onclick = ()=>btnTie.click();
+
+renderList();
+</script>
+</body>
+</html>
