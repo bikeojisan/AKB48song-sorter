@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AKB48 楽曲ソート（817曲・YouTube検索のみ・モバイル最適化）</title>
+<title>AKB48 楽曲ソート（817曲・YouTube検索のみ・スマホ横並び）</title>
 <style>
   :root{
     --bg:#0b0b10; --bg2:#11131a; --panel:#121520; --border:#2a2f3a; --text:#eaeaea;
@@ -25,34 +25,31 @@
   .row:nth-child(even){ background:#0f1322; }
   .small{ color:var(--muted); font-size:13px; }
 
-  .compare{ display:grid; grid-template-columns:1fr 160px 1fr; gap:12px; margin-top:14px; align-items:stretch; }
-  .card{ background:#0e1220; border:1px solid var(--border); border-radius:16px; padding:18px; font-size:18px; display:flex; align-items:center; justify-content:center; min-height:110px; text-align:center; }
+  .compare{ display:grid; grid-template-columns:1fr 120px 1fr; gap:8px; margin-top:14px; align-items:stretch; }
+  .card{ background:#0e1220; border:1px solid var(--border); border-radius:16px; padding:14px; font-size:18px; display:flex; align-items:center; justify-content:center; min-height:110px; text-align:center; }
+
   .progress{ height:12px; background:#1b2133; border-radius:999px; overflow:hidden; border:1px solid var(--border); }
   .bar{ height:100%; width:0%; background:linear-gradient(90deg,var(--accent1),var(--accent2)); }
 
   /* Sticky action bar for mobile */
-  .actionbar{ position:sticky; bottom:0; background:var(--bg2); border-top:1px solid var(--border); padding:10px; display:none; gap:8px; z-index:9; }
+  .actionbar{ position:sticky; bottom:0; background:var(--bg2); border-top:1px solid var(--border); padding:10px; display:flex; gap:8px; z-index:9; }
   .actionbar button{ flex:1; }
 
-  /* Larger checkbox touch target */
-  input[type="checkbox"]{ width:22px; height:22px; }
-
-  /* Mobile layout */
+  /* Keep side-by-side on mobile */
   @media (max-width: 680px){
     .controls{ grid-template-columns:1fr; }
     .list{ max-height: min(50vh, 460px); }
-    .compare{ grid-template-columns:1fr; }
-    .card{ min-height: 140px; font-size: 18px; padding: 20px; }
-    .choiceCol{ display:none; }
-    .actionbar{ display:flex; }
-    button{ font-size:17px; }
+    .compare{ grid-template-columns:1fr 88px 1fr; gap:6px; }
+    .card{ min-height: 96px; font-size: 15px; padding: 10px; border-radius:14px; }
+    .choiceCol button{ padding:10px 8px; font-size:14px; min-height:40px; }
+    button{ font-size:16px; }
   }
 </style>
 </head>
 <body>
 <header>
-  <h1>AKB48 楽曲ソート（817曲・YouTube検索のみ・モバイル最適化）</h1>
-  <div class="small">PC: A/←=左, D/→=右, S/↓=同じ, Q=左を検索, E=右を検索 ／ スマホ: カードを左右にスワイプで選択、タップでYouTube検索</div>
+  <h1>AKB48 楽曲ソート（817曲・YouTube検索のみ・スマホ横並び）</h1>
+  <div class="small">PC: A/←=左, D/→=右, S/↓=同じ, Q=左を検索, E=右を検索 ／ スマホ: 左右は常に横並び。タップ=検索、スワイプ=選択</div>
 </header>
 
 <div class="container">
@@ -83,10 +80,10 @@
           <button id="btnLeftSearch">左をYouTube検索</button>
         </div>
       </div>
-      <div class="choiceCol" style="display:flex; align-items:center; justify-content:center; gap:8px; flex-direction:column;">
-        <button id="btnLeft" title="← または A"><span>A / ←</span> 左を選ぶ</button>
-        <button id="btnTie" title="↓ または S"><span>S / ↓</span> 同じくらい</button>
-        <button id="btnRight" title="→ または D"><span>D / →</span> 右を選ぶ</button>
+      <div class="choiceCol" style="display:flex; align-items:center; justify-content:center; gap:6px; flex-direction:column;">
+        <button id="btnLeft" title="← または A"><span>A / ←</span> 左</button>
+        <button id="btnTie" title="↓ または S"><span>S / ↓</span> 同じ</button>
+        <button id="btnRight" title="→ または D"><span>D / →</span> 右</button>
       </div>
       <div>
         <div class="card" id="rightCard" tabindex="0">右</div>
@@ -98,9 +95,9 @@
   </div>
 
   <div class="actionbar" id="actionbar">
-    <button id="abLeft">左を選ぶ</button>
-    <button id="abTie">同じくらい</button>
-    <button id="abRight">右を選ぶ</button>
+    <button id="abLeft">左</button>
+    <button id="abTie">同じ</button>
+    <button id="abRight">右</button>
   </div>
 </div>
 
@@ -163,7 +160,7 @@ let blocks=[], nextBlocks=[], pairIdx=0, iA=0, iB=0, out=[], total=0, done=0;
 
 function startWith(list){
   if(list.length<2){ alert('2曲以上選んでね'); return; }
-  let pool=list.slice(); if(shuffleEl.checked) pool.sort(()=>Math.random()-0.5);
+  let pool=list.slice(); if(shuffleEl && shuffleEl.checked) pool.sort(()=>Math.random()-0.5);
   blocks=pool.map(x=>[x]); nextBlocks=[]; pairIdx=0; iA=iB=0; out=[];
   total = estimate(pool.length); done = 0;
   sorter.style.display='';
@@ -177,7 +174,7 @@ function currentRight(){ return (pairIdx+1<blocks.length)?blocks[pairIdx+1]:[]; 
 function updateProgress(){ const pct=Math.min(100,Math.floor((done/Math.max(1,total))*100)); bar.style.width=pct+'%'; progressText.textContent = done + ' / ' + total; }
 function showNextPair(){
   if(pairIdx>=blocks.length){
-    if(nextBlocks.length===0) return; // 完了（必要なら結果表示に変更可）
+    if(nextBlocks.length===0) return; // 完了
     blocks=nextBlocks; nextBlocks=[]; pairIdx=0; iA=iB=0; out=[];
   }
   const A=currentLeft(), B=currentRight();
@@ -193,8 +190,9 @@ function showNextPair(){
 function yt(title){ window.open('https://www.youtube.com/results?search_query='+encodeURIComponent('AKB48 '+title),'_blank'); }
 btnLeftSearch.onclick=()=>yt(leftCard.textContent);
 btnRightSearch.onclick=()=>yt(rightCard.textContent);
+[leftCard, rightCard].forEach(el => el.addEventListener('click', ()=> yt(el.textContent)));
 
-// Swipe gestures (mobile)
+// Swipe gestures (mobile) keep horizontal choice
 function addSwipe(el, onLeft, onRight){
   let sx=0, sy=0, dx=0, dy=0, touching=false;
   el.addEventListener('touchstart', (e)=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; touching=true; }, {passive:true});
@@ -202,10 +200,7 @@ function addSwipe(el, onLeft, onRight){
   el.addEventListener('touchend', ()=>{
     if(!touching) return; touching=false;
     if(Math.abs(dx)>50 && Math.abs(dy)<40){
-      if(dx<0) onLeft(); else onRight();
-    } else {
-      // tap opens YouTube
-      yt(el.textContent);
+      if(dx<0) { btnLeft.click(); } else { btnRight.click(); }
     }
     dx=dy=0;
   }, {passive:true});
@@ -213,7 +208,7 @@ function addSwipe(el, onLeft, onRight){
 addSwipe(leftCard, ()=>{ btnLeft.click(); }, ()=>{ btnRight.click(); });
 addSwipe(rightCard, ()=>{ btnLeft.click(); }, ()=>{ btnRight.click(); });
 
-// Keyboard shortcuts (desktop)
+// Keyboard shortcuts
 document.addEventListener('keydown', (e)=>{
   if(sorter.style.display==='none') return;
   const k=e.key.toLowerCase();
@@ -224,7 +219,7 @@ document.addEventListener('keydown', (e)=>{
   else if(k==='e') btnRightSearch.click();
 });
 
-// Sticky action bar (mobile)
+// Sticky action bar
 abLeft.onclick = ()=>btnLeft.click();
 abRight.onclick = ()=>btnRight.click();
 abTie.onclick = ()=>btnTie.click();
