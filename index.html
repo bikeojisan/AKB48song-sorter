@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AKB48 楽曲ソート（817曲・YouTube検索のみ・スマホ横並び）</title>
+<title>AKB48 楽曲ソート（817曲・YouTube検索のみ・スマホ横並び v2）</title>
 <style>
   :root{
     --bg:#0b0b10; --bg2:#11131a; --panel:#121520; --border:#2a2f3a; --text:#eaeaea;
@@ -26,16 +26,16 @@
   .small{ color:var(--muted); font-size:13px; }
 
   .compare{ display:grid; grid-template-columns:1fr 120px 1fr; gap:8px; margin-top:14px; align-items:stretch; }
-  .card{ background:#0e1220; border:1px solid var(--border); border-radius:16px; padding:14px; font-size:18px; display:flex; align-items:center; justify-content:center; min-height:110px; text-align:center; }
+  .card{ background:#0e1220; border:1px solid var(--border); border-radius:16px; padding:14px; font-size:18px; display:flex; align-items:center; justify-content:center; min-height:110px; text-align:center; user-select:none; }
+  .card[role="button"]{ cursor:pointer; }
+  .card:active{ transform:scale(.99); }
 
   .progress{ height:12px; background:#1b2133; border-radius:999px; overflow:hidden; border:1px solid var(--border); }
   .bar{ height:100%; width:0%; background:linear-gradient(90deg,var(--accent1),var(--accent2)); }
 
-  /* Sticky action bar for mobile */
   .actionbar{ position:sticky; bottom:0; background:var(--bg2); border-top:1px solid var(--border); padding:10px; display:flex; gap:8px; z-index:9; }
   .actionbar button{ flex:1; }
 
-  /* Keep side-by-side on mobile */
   @media (max-width: 680px){
     .controls{ grid-template-columns:1fr; }
     .list{ max-height: min(50vh, 460px); }
@@ -48,8 +48,8 @@
 </head>
 <body>
 <header>
-  <h1>AKB48 楽曲ソート（817曲・YouTube検索のみ・スマホ横並び）</h1>
-  <div class="small">PC: A/←=左, D/→=右, S/↓=同じ, Q=左を検索, E=右を検索 ／ スマホ: 左右は常に横並び。タップ=検索、スワイプ=選択</div>
+  <h1>AKB48 楽曲ソート（817曲・YouTube検索のみ・スマホ横並び v2）</h1>
+  <div class="small">PC: A/←=左, D/→=右, S/↓=同じ, Q=左を検索, E=右を検索 ／ スマホ: 左右は横並び。カード<strong>タップで選択</strong>、検索は専用ボタン。</div>
 </header>
 
 <div class="container">
@@ -75,9 +75,9 @@
     <div class="small" style="margin-top:6px">進捗：<span id="progressText">0 / 0</span></div>
     <div class="compare" aria-live="polite">
       <div>
-        <div class="card" id="leftCard" tabindex="0">左</div>
+        <div class="card" id="leftCard" role="button" tabindex="0" aria-label="左を選ぶ">左</div>
         <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
-          <button id="btnLeftSearch">左をYouTube検索</button>
+          <button id="btnLeftSearch" aria-label="左をYouTube検索">左をYouTube検索</button>
         </div>
       </div>
       <div class="choiceCol" style="display:flex; align-items:center; justify-content:center; gap:6px; flex-direction:column;">
@@ -86,9 +86,9 @@
         <button id="btnRight" title="→ または D"><span>D / →</span> 右</button>
       </div>
       <div>
-        <div class="card" id="rightCard" tabindex="0">右</div>
+        <div class="card" id="rightCard" role="button" tabindex="0" aria-label="右を選ぶ">右</div>
         <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
-          <button id="btnRightSearch">右をYouTube検索</button>
+          <button id="btnRightSearch" aria-label="右をYouTube検索">右をYouTube検索</button>
         </div>
       </div>
     </div>
@@ -187,10 +187,16 @@ function showNextPair(){
   leftCard.textContent=A[iA]; rightCard.textContent=B[iB]; done++; updateProgress();
 }
 
+// Click/tap on cards = choose
+leftCard.addEventListener('click', ()=> btnLeft.click());
+rightCard.addEventListener('click', ()=> btnRight.click());
+leftCard.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); btnLeft.click(); }});
+rightCard.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); btnRight.click(); }});
+
+// YouTube search buttons only
 function yt(title){ window.open('https://www.youtube.com/results?search_query='+encodeURIComponent('AKB48 '+title),'_blank'); }
 btnLeftSearch.onclick=()=>yt(leftCard.textContent);
 btnRightSearch.onclick=()=>yt(rightCard.textContent);
-[leftCard, rightCard].forEach(el => el.addEventListener('click', ()=> yt(el.textContent)));
 
 // Swipe gestures (mobile) keep horizontal choice
 function addSwipe(el, onLeft, onRight){
@@ -199,24 +205,27 @@ function addSwipe(el, onLeft, onRight){
   el.addEventListener('touchmove', (e)=>{ if(!touching) return; const t=e.changedTouches[0]; dx=t.clientX-sx; dy=t.clientY-sy; }, {passive:true});
   el.addEventListener('touchend', ()=>{
     if(!touching) return; touching=false;
-    if(Math.abs(dx)>50 && Math.abs(dy)<40){
-      if(dx<0) { btnLeft.click(); } else { btnRight.click(); }
-    }
+    if(Math.abs(dx)>50 && Math.abs(dy)<40){ if(dx<0) btnLeft.click(); else btnRight.click(); }
     dx=dy=0;
   }, {passive:true});
 }
 addSwipe(leftCard, ()=>{ btnLeft.click(); }, ()=>{ btnRight.click(); });
 addSwipe(rightCard, ()=>{ btnLeft.click(); }, ()=>{ btnRight.click(); });
 
-// Keyboard shortcuts
+// Robust keyboard shortcuts on desktop
 document.addEventListener('keydown', (e)=>{
-  if(sorter.style.display==='none') return;
+  // ignore when typing in inputs
+  const tag = (document.activeElement && document.activeElement.tagName) || "";
+  const isFormField = /INPUT|TEXTAREA|SELECT/.test(tag) || (document.activeElement && document.activeElement.isContentEditable);
+  if(isFormField) return;
+
+  if(getComputedStyle(sorter).display==='none') return;
   const k=e.key.toLowerCase();
-  if(k==='arrowleft'||k==='a') btnLeft.click();
-  else if(k==='arrowright'||k==='d') btnRight.click();
-  else if(k==='arrowdown'||k==='s') btnTie.click();
-  else if(k==='q') btnLeftSearch.click();
-  else if(k==='e') btnRightSearch.click();
+  if(k==='arrowleft' || k==='a'){ e.preventDefault(); btnLeft.click(); }
+  else if(k==='arrowright' || k==='d'){ e.preventDefault(); btnRight.click(); }
+  else if(k==='arrowdown' || k==='s'){ e.preventDefault(); btnTie.click(); }
+  else if(k==='q'){ e.preventDefault(); btnLeftSearch.click(); }
+  else if(k==='e'){ e.preventDefault(); btnRightSearch.click(); }
 });
 
 // Sticky action bar
